@@ -1,4 +1,5 @@
-import { hexToRgb, type RGB } from "./color";
+import { type RGB } from "./color";
+import { sanitizeOSCPath } from "./osc";
 import type { Point2D, Point3D } from "./points";
 
 export interface SerializedOSCQueryNode {
@@ -39,13 +40,24 @@ export const OSCQueryTypes = {
     },
 } as const;
 
-type NodeType = keyof typeof OSCQueryTypes.Tags | "Container";
+export type NodeType = keyof typeof OSCQueryTypes.Tags | "Container";
+export type NodeTypeValue<TType extends NodeType> = TType extends "Integer" ? number :
+    TType extends "Float" ? number :
+    TType extends "String" ? string :
+    TType extends "Color" ? RGB :
+    TType extends "Point2D" ? Point2D :
+    TType extends "Point3D" ? Point3D :
+    TType extends "Boolean" ? boolean :
+    TType extends "Container" ? ValueMap : never;
 
-type OSCQueryNodeType<TType extends NodeType, TExtra = {}> = {
+export type OSCQueryNodeBase = {
     description: string;
     fullPath: string;
-    type: TType;
     access: typeof OSCQueryAccess[keyof typeof OSCQueryAccess];
+    type: NodeType;
+}
+type OSCQueryNodeContent<TType extends NodeType, TExtra = {}> = OSCQueryNodeBase & {
+    type: TType;
 } & TExtra;
 
 export type Range = {
@@ -53,36 +65,36 @@ export type Range = {
     max: number;
 }
 
-export type OSCQueryIntNode = OSCQueryNodeType<"Integer", {
+export type OSCQueryIntNode = OSCQueryNodeContent<"Integer", {
     range?: Partial<Range>;
 }>;
 
-export type OSCQueryFloatNode = OSCQueryNodeType<"Float", {
+export type OSCQueryFloatNode = OSCQueryNodeContent<"Float", {
     range?: Partial<Range>;
 }>;
 
-export type OSCQueryStringNode = OSCQueryNodeType<"String", {
+export type OSCQueryStringNode = OSCQueryNodeContent<"String", {
     enumValues?: string[];
 }>;
 
-export type OSCQueryColorNode = OSCQueryNodeType<"Color", {
+export type OSCQueryColorNode = OSCQueryNodeContent<"Color", {
 }>;
 
-export type OSCQueryBooleanNode = OSCQueryNodeType<"Boolean", {
+export type OSCQueryBooleanNode = OSCQueryNodeContent<"Boolean", {
 }>;
 
-export type OSCQueryContainerNode = OSCQueryNodeType<"Container", {
+export type OSCQueryContainerNode = OSCQueryNodeContent<"Container", {
     contents: { [key: string]: OSCQueryNode };
 }>;
 
-export type OSCQueryPoint2DNode = OSCQueryNodeType<"Point2D", {
+export type OSCQueryPoint2DNode = OSCQueryNodeContent<"Point2D", {
     range?: Partial<{
         x: Partial<Range>;
         y: Partial<Range>;
     }>
 }>;
 
-export type OSCQueryPoint3DNode = OSCQueryNodeType<"Point3D", {
+export type OSCQueryPoint3DNode = OSCQueryNodeContent<"Point3D", {
     range?: Partial<{
         x: Partial<Range>;
         y: Partial<Range>;
@@ -90,16 +102,28 @@ export type OSCQueryPoint3DNode = OSCQueryNodeType<"Point3D", {
     }>
 }>;
 
+
+
 export type OSCQueryNode = OSCQueryIntNode
     | OSCQueryFloatNode
     | OSCQueryStringNode
-    | OSCQueryBooleanNode
     | OSCQueryColorNode
     | OSCQueryPoint2DNode
     | OSCQueryPoint3DNode
-    | OSCQueryContainerNode
+    | OSCQueryBooleanNode
+    | OSCQueryContainerNode;
 
-export type NodeWithValue<TNode extends OSCQueryNode, TValue = undefined> = {
+export type MappedOSCQueryNode<TNode = "Container"> =
+    TNode extends "Integer" ? OSCQueryIntNode :
+    TNode extends "Float" ? OSCQueryFloatNode :
+    TNode extends "String" ? OSCQueryStringNode :
+    TNode extends "Color" ? OSCQueryColorNode :
+    TNode extends "Point2D" ? OSCQueryPoint2DNode :
+    TNode extends "Point3D" ? OSCQueryPoint3DNode :
+    TNode extends "Container" ? OSCQueryContainerNode : never;
+
+export type NodeWithValue<TNode extends OSCQueryNodeBase, TValue = undefined> = {
+    type: TNode["type"];
     node: TNode;
     value: TValue;
 }
@@ -107,7 +131,6 @@ export type NodeWithValue<TNode extends OSCQueryNode, TValue = undefined> = {
 
 export type ValueMap = { [key: string]: NodeValue };
 export type NodeValue = number | string | RGB | Point2D | Point3D | boolean | ValueMap;
-
 
 
 export type ParseNodeResult = NodeWithValue<OSCQueryIntNode, number>
@@ -150,7 +173,8 @@ export const parseNode = (node: SerializedOSCQueryNode): ParseNodeResult => {
                 access,
                 range: rangeToRange(range?.[0]),
             };
-            return  {
+            return {
+                type: "Integer",
                 node: intNode,
                 value: (value![0] ?? 0) as number,
             };
@@ -164,6 +188,7 @@ export const parseNode = (node: SerializedOSCQueryNode): ParseNodeResult => {
                 range: rangeToRange(range?.[0]),
             };
             return {
+                type: "Float",
                 node: floatNode,
                 value: (value![0] ?? 0) as number,
             };
@@ -177,6 +202,7 @@ export const parseNode = (node: SerializedOSCQueryNode): ParseNodeResult => {
                 enumValues: range?.[0]?.VALS,
             };
             return {
+                type: "String",
                 node: stringNode,
                 value: (value![0] ?? "") as string,
             };
@@ -192,14 +218,19 @@ export const parseNode = (node: SerializedOSCQueryNode): ParseNodeResult => {
                 access,
             };
             return {
+                type: "Boolean",
                 node: booleanNode,
                 value: booleanValue,
             };
 
         case OSCQueryTypes.Tags.Color:
 
-            const hexColor = value![0] as string;
-            const rgbColor = hexToRgb(hexColor);
+            const uint32 = ((value![0] ?? 0)as number);
+            const r = (uint32 >> 24) & 0xFF;
+            const g = (uint32 >> 16) & 0xFF;
+            const b = (uint32 >> 8) & 0xFF;
+            const a = uint32 & 0xFF;
+            const rgbColor = { r, g, b, a };
 
             const colorNode: OSCQueryColorNode = {
                 description,
@@ -208,6 +239,7 @@ export const parseNode = (node: SerializedOSCQueryNode): ParseNodeResult => {
                 access,
             };
             return {
+                type: "Color",
                 node: colorNode,
                 value: rgbColor,
             };
@@ -224,6 +256,7 @@ export const parseNode = (node: SerializedOSCQueryNode): ParseNodeResult => {
                 },
             };
             return {
+                type: "Point2D",
                 node: point2DNode,
                 value: {
                     x: (value![0] ?? 0) as number,
@@ -239,6 +272,7 @@ export const parseNode = (node: SerializedOSCQueryNode): ParseNodeResult => {
                 access,
             };
             return {
+                type: "Point3D",
                 node: point3DNode,
                 value: {
                     x: (value![0] ?? 0) as number,
@@ -267,20 +301,11 @@ export const parseNode = (node: SerializedOSCQueryNode): ParseNodeResult => {
         fullPath,
         type: "Container",
         access,
-        contents: nodeMap,
+        contents: nodeMap as { [key: string]: OSCQueryNode },
     };
     return {
+        type: "Container",
         node: containerNode,
         value: valueMap,
     };
-}
-
-
-export const sanitizeOSCPath = (path: string): string => {
-
-    if (!path.startsWith("/")) path = "/" + path;
-
-    return path
-        .replace(/\/+/g, "/")
-        .replace(/ /g, "_");
 }

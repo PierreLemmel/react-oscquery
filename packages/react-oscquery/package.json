@@ -1,0 +1,47 @@
+{
+  "name": "react-oscquery",
+  "version": "1.0.0",
+  "description": "A type-safe OSCQuery support library for React applications",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rimraf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "react",
+    "oscquery"
+  ],
+  "author": "Pierre Lemmel",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.10",
+    "rimraf": "^6.0.1",
+    "typescript": "~5.8.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pierrelemmel/react-oscquery.git"
+  },
+  "bugs": {
+    "url": "https://github.com/pierrelemmel/react-oscquery/issues"
+  },
+  "homepage": "https://github.com/pierrelemmel/react-oscquery#readme"
+}
