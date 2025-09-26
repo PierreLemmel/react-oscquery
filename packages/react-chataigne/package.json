@@ -1,6 +1,6 @@
 {
   "name": "react-chataigne",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "description": "A React library for Chataigne integration using OSCQuery",
   "type": "module",
   "main": "./dist/index.js",
@@ -46,6 +46,6 @@
   },
   "homepage": "https://github.com/pierrelemmel/react-oscquery#readme",
   "dependencies": {
-    "react-oscquery": "^1.0.0"
+    "react-oscquery": "^1.0.2"
   }
 }

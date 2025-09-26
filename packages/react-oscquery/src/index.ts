@@ -1,4 +1,5 @@
 export { useOSCQuery, type OSCQueryOptions, type UseOSCQueryResult } from './hooks/useOSCQuery';
+export { useOSCQueryRef, type UseOSCQueryRefResult } from './hooks/useOSCQueryRef';
 export { useEffectAsync } from './hooks/useEffectAsync';
 
 export {

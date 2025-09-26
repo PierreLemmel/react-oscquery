@@ -1,12 +1,14 @@
 import { err, ok, type Result } from "../utils";
 import { parseNode, type MappedOSCQueryNode, type NodeType, type NodeTypeValue, type NodeValue, type OSCQueryContainerNode, type OSCQueryNode, type OSCQueryNodeBase, type ParseNodeResult, type SerializedOSCQueryNode, type ValueMap } from "./oscquery";
 import { isOSCPath, parseOscMessage, sanitizeOSCPath, type OSCPath } from "./osc";
+import { RGBA } from "./color";
 
 export type SetValueCallback<TValue = NodeValue> = (path: string, value: TValue, ws?: WebSocket) => void;
 
 export type OSCQueryClientOptions = {
     host: string;
     port: number;
+    useWss: boolean;
     /**
      * Callback to set the value of the node.
      * OSCQu=ery spec expect the value to be set via UDP OSC messages that browser cannot send.
@@ -58,6 +60,8 @@ export type OSCQueryClientState = "idle"|"syncing"|"ready";
 export class OSCQueryClient {
     private host: string;
     private port: number;
+    private useWss: boolean;
+
     public setValueCallback?: SetValueCallback;
     private ws: WebSocket | null = null;
 
@@ -85,11 +89,12 @@ export class OSCQueryClient {
         this._state = "idle";
         this.host = options.host;
         this.port = options.port;
+        this.useWss = options.useWss;
         this.wsSetup();
     }
 
     private wsSetup(): void {
-        this.ws = new WebSocket(`ws://${this.host}:${this.port}`);
+        this.ws = new WebSocket(`${this.useWss ? "wss" : "ws"}://${this.host}:${this.port}`);
         this.ws.onopen = () => {
             console.log("Connection to OSCQuery server established");
         }
@@ -308,12 +313,7 @@ export class OSCQueryClient {
                 container[propKey] = args[0] as string;
                 break;
             case "Color":
-                const rgb = {
-                    r: args[0] as number,
-                    g: args[1] as number,
-                    b: args[2] as number,
-                    a: args[3] as number,
-                }
+                const rgb = args[0] as RGBA;
                 container[propKey] = rgb;
                 break;
             case "Boolean":
@@ -349,11 +349,16 @@ export class OSCQueryClient {
         let currentNode: NodeValue|null = this.data;
 
         const fireListeners = (path: string, node: NodeValue): void => {
+            path = path != "" ? path : "/";
             const listeners = this.nodeListeners.get(path.toLowerCase());
             if (listeners && listeners.size > 0) {
                 const val = structuredClone(node);
                 listeners.forEach(listener => listener(path as OSCPath, val));
             }
+        }
+
+        if (currentNode) {
+            fireListeners(currentPath != "" ? currentPath : "/", currentNode);
         }
 
         for (const chunk of chunks) {
@@ -363,11 +368,6 @@ export class OSCQueryClient {
             }
 
             fireListeners(currentPath != "" ? currentPath : "/", currentNode);
-            const listeners = this.nodeListeners.get(currentPath != "" ? currentPath : "/");
-            if (listeners && listeners.size > 0) {
-                const val = structuredClone(currentNode);
-                listeners.forEach(listener => listener(currentPath as OSCPath, val));
-            }
 
             currentPath += `/${chunk.toLowerCase()}`;
             if (typeof currentNode === "object" && currentNode !== null && chunk in currentNode) {
@@ -414,7 +414,6 @@ export class OSCQueryClient {
         }
 
         if (isOSCPath(event)) {
-
             if (!this.nodeListeners.has(event)) {
                 this.nodeListeners.set(event, new Set());
             }
@@ -497,7 +496,7 @@ export class OSCQueryClient {
         const chunks = path.split("/");
         
         const value = this.getNodeValue(chunks);
-        if (!value) {
+        if (value === null) {
             return err("Node value not found");
         }
 
@@ -530,7 +529,6 @@ export class OSCQueryClient {
     private getNodeValue(pathChunks: string[]): NodeValue|null {
         let curr: NodeValue = this.data;
         for (const chunk of pathChunks.filter(s => s.length > 0)) {
-
             if (typeof curr === "object" && curr !== null && chunk in curr) {
                 curr = (curr as any)[chunk];
             }

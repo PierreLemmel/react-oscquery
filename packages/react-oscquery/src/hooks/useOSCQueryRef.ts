@@ -1,25 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { RefObject, useEffect, useMemo, useRef, useState } from "react"
 import { type OSCNodeValueInfo, type SetValueCallback } from "../osc-query/oscquery-client";
 import { clientManager } from "../osc-query/client-manager";
 import { isOSCPath, type OSCPath } from "../osc-query/osc";
-import type { MappedOSCQueryNode, NodeType, NodeTypeValue, NodeValue } from "../osc-query/oscquery";
+import type { NodeType, NodeTypeValue, NodeValue } from "../osc-query/oscquery";
+import { OSCQueryOptions } from "./useOSCQuery";
 
 
-export type OSCQueryOptions = {
-    host: string;
-    port: number;
-    useWss?: boolean;
-    setValue?: SetValueCallback;
-}
 
-export type UseOSCQueryResult<TType extends NodeType> = [
-    OSCNodeValueInfo<TType> | null,
+export type UseOSCQueryRefResult<TType extends NodeType> = [
+    RefObject<OSCNodeValueInfo<TType> | null>,
     boolean,
     Error | null
 ]
 
 
-export function useOSCQuery<TType extends NodeType>(options: OSCQueryOptions, path: string = "/"): UseOSCQueryResult<TType> {
+export function useOSCQueryRef<TType extends NodeType>(options: OSCQueryOptions, path: string = "/"): UseOSCQueryRefResult<TType> {
 
     const {
         host,
@@ -30,9 +25,7 @@ export function useOSCQuery<TType extends NodeType>(options: OSCQueryOptions, pa
 
     const client = useMemo(() => clientManager.getClient({ host, port, useWss }), [host, port, useWss])
 
-    
-    const [value, setValue] = useState<NodeTypeValue<TType> | null>(null)
-    const [info, setInfo] = useState<MappedOSCQueryNode<TType> | null>(null)
+    const resultRef = useRef<OSCNodeValueInfo<TType> | null>(null)
     const valueSetterRef = useRef<SetValueCallback<NodeTypeValue<TType>> | undefined>(undefined)
 
     const [loading, setLoading] = useState(false)
@@ -66,8 +59,11 @@ export function useOSCQuery<TType extends NodeType>(options: OSCQueryOptions, pa
                     setValue: newValueSetter
                 } = nodeResult.value
 
-                setValue(value)
-                setInfo(info)
+                resultRef.current = {
+                    value,
+                    info,
+                    setValue: newValueSetter
+                }
                 valueSetterRef.current = newValueSetter
             }
             else {
@@ -81,10 +77,9 @@ export function useOSCQuery<TType extends NodeType>(options: OSCQueryOptions, pa
         if (client.state === "ready") {
             onReady()
         }
-
+        
         else {
-            setValue(null)
-            setInfo(null)
+            resultRef.current = null
             setLoading(true)
 
             client.on("sync", onReady)
@@ -103,7 +98,9 @@ export function useOSCQuery<TType extends NodeType>(options: OSCQueryOptions, pa
         if (isOSCPath(path)) {
             const nodeListener = (nodePath: OSCPath, value: NodeValue) => {
                 const castedValue = value as NodeTypeValue<TType>
-                setValue(castedValue)
+                if (resultRef.current) {
+                    resultRef.current.value = castedValue
+                }
             }
     
             client.on(path, nodeListener)
@@ -117,11 +114,5 @@ export function useOSCQuery<TType extends NodeType>(options: OSCQueryOptions, pa
         }
     }, [client, path])
 
-    const valueInfo = (value !== null && info !== null) ? {
-        value,
-        info,
-        setValue: valueSetterRef.current
-    } : null
-
-    return [valueInfo, loading, error]
+    return [resultRef, loading, error]
 }

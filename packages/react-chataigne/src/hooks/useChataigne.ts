@@ -21,6 +21,7 @@ export function useChataigne<TType extends NodeType>(path: string, options?: Par
 	const [data, loading, error] = useOSCQuery<TType>({
 		host,
 		port,
+		useWss: false,
 		setValue: chataigneSetValue
 	}, path)
 

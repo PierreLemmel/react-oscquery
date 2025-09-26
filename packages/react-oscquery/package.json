@@ -1,6 +1,6 @@
 {
   "name": "react-oscquery",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "description": "A type-safe OSCQuery support library for React applications",
   "type": "module",
   "main": "./dist/index.js",

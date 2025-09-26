@@ -4,7 +4,7 @@ function App() {
 	const [node, loading, error] = useOSCQuery<"Float">({
 		host: "127.0.0.1",
 		port: 42000,
-	}, "/customVariables/group/variables/flt/flt")
+	}, "/customVariables/group/variables/value1/value1")
 
 	if (loading) return <div>Loading...</div>
 	if (error) return <div>Error: {error.message}</div>
