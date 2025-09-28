@@ -3,7 +3,7 @@ import type { RGBA } from "./color";
 export type OSCPath = `/${string}`;
 
 export const isOSCPath = (path: string): path is OSCPath => {
-    const oscPathRegex = /^\/([A-Za-z0-9_\-]+(\/[A-Za-z0-9_\-]+)*)?$/;
+    const oscPathRegex = /^\/([#A-Za-z0-9_\-]+(\/[#A-Za-z0-9_\-]+)*)?$/;
     return oscPathRegex.test(path);
 }
 

@@ -12,7 +12,9 @@ export type UseChataigneRefOptions = {
 	port: number;
 }
 
-export function useChataigneRef<TType extends NodeType>(path: string, options?: Partial<UseChataigneRefOptions>): UseOSCQueryRefResult<TType> {
+export type UseChataigneRefResult<TType extends NodeType> = UseOSCQueryRefResult<TType>
+
+export function useChataigneRef<TType extends NodeType>(path: string, options?: Partial<UseChataigneRefOptions>): UseChataigneRefResult<TType> {
 	const {
 		host = "127.0.0.1",
 		port = 42000,
